@@ -4,7 +4,7 @@
 
 Simulates a departing user exfiltrating data, so you can prove an Insider Risk policy works and capture the resulting alert.
 
-Companion script for [Insider Risk Management Part 4: Creating your first policy](https://cloud-secure.ai/insider-risk-management-part-4/). Set up the roles and policy first with [Invoke-InsiderRiskSetup](../Invoke-InsiderRiskSetup).
+Companion script for [Insider Risk Management Part 4: Creating your first policy](https://cloud-secure.ai/2026/10/31/insider-risk-management-part-4-creating-your-first-policy/). Set up the roles and policy first with [Invoke-InsiderRiskSetup](../Invoke-InsiderRiskSetup).
 
 ## How it works
 
