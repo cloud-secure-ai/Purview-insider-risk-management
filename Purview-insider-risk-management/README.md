@@ -1,6 +1,6 @@
 # Purview-insider-risk-management
 
-PowerShell scripts and KQL hunting queries that accompany the cloud-secure.ai blog series **[Insider Risk Management with Microsoft Purview](https://cloud-secure.ai/insider-risk-management-series-guide/)**.
+PowerShell scripts and KQL hunting queries that accompany the cloud-secure.ai blog series **[Insider Risk Management with Microsoft Purview](https://cloud-secure.ai/2026/10/31/insider-risk-management-with-microsoft-purview-the-series/)**.
 
 | Folder | What it does | Where to run it |
 |---|---|---|
@@ -10,7 +10,7 @@ PowerShell scripts and KQL hunting queries that accompany the cloud-secure.ai bl
 
 ## Why there is no script to create the policy
 
-Microsoft does not provide a documented, supported PowerShell cmdlet for creating Insider Risk policies. Create the policy in the Microsoft Purview portal - [Part 4](https://cloud-secure.ai/insider-risk-management-part-4/) walks through every step with screenshots - then use these scripts to set up the roles around it and prove it works.
+Microsoft does not provide a documented, supported PowerShell cmdlet for creating Insider Risk policies. Create the policy in the Microsoft Purview portal - [Part 4](https://cloud-secure.ai/2026/10/31/insider-risk-management-part-4-creating-your-first-policy/) walks through every step with screenshots - then use these scripts to set up the roles around it and prove it works.
 
 ## Typical order
 
