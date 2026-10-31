@@ -2,7 +2,7 @@
 
 Prepares a Microsoft 365 tenant for **Microsoft Purview Insider Risk Management** and verifies an Insider Risk policy created in the Purview portal.
 
-Companion script for [Insider Risk Management Part 4: Creating your first policy](https://cloud-secure.ai/insider-risk-management-part-4/), part of the cloud-secure.ai [Insider Risk Management series](https://cloud-secure.ai/insider-risk-management-series-guide/).
+Companion script for [Insider Risk Management Part 4: Creating your first policy](https://cloud-secure.ai/2026/10/31/insider-risk-management-part-4-creating-your-first-policy/), part of the cloud-secure.ai [Insider Risk Management series](https://cloud-secure.ai/2026/10/31/insider-risk-management-with-microsoft-purview-the-series/).
 
 > To prove the policy works afterwards, use [Invoke-InsiderRiskSimulation](../Invoke-InsiderRiskSimulation) in a test environment.
 
