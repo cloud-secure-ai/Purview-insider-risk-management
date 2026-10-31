@@ -2,7 +2,7 @@
 
 Advanced hunting queries for **Microsoft Defender XDR** that show insider risk activity, especially people taking data before they leave.
 
-Companion to [Insider Risk Management Part 4: Creating your first policy](https://cloud-secure.ai/insider-risk-management-part-4/), part of the cloud-secure.ai [Insider Risk Management series](https://cloud-secure.ai/insider-risk-management-series-guide/).
+Companion to [Insider Risk Management Part 4: Creating your first policy](https://cloud-secure.ai/2026/10/31/insider-risk-management-part-4-creating-your-first-policy/), part of the cloud-secure.ai [Insider Risk Management series](https://cloud-secure.ai/2026/10/31/insider-risk-management-with-microsoft-purview-the-series/).
 
 ## What is KQL?
 
