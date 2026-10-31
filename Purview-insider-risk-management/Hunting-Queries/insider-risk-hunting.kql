@@ -1,0 +1,151 @@
+// =====================================================================================
+// Insider Risk Management - advanced hunting queries for Microsoft Defender XDR
+// Author:  Seán O'Farrell
+// Website: https://cloud-secure.ai/
+//
+// Run in the Microsoft Defender portal > Investigation & response > Hunting > Advanced hunting.
+//
+// Queries 1-4 use Insider Risk Management data in Defender. They return nothing until
+// "Sharing data with other Microsoft security solutions" is turned on in
+// Purview > Insider Risk Management settings > Data sharing, and you are in the
+// Insider Risk Management Analysts or Investigators role group.
+//
+// Queries 5-7 use standard Defender tables and work without Insider Risk Management,
+// which makes them useful for proving the gap in a tenant that has not switched it on.
+// =====================================================================================
+
+
+// -------------------------------------------------------------------------------------
+// 1. Discover the exact alert source names in your tenant
+//    Run this first. Note the ServiceSource value shown for Insider Risk Management
+//    and use it in query 2.
+// -------------------------------------------------------------------------------------
+AlertInfo
+| where Timestamp > ago(30d)
+| summarize Alerts = count() by ServiceSource, DetectionSource
+| order by Alerts desc
+
+
+// -------------------------------------------------------------------------------------
+// 2. Insider Risk Management alerts with the people involved
+// -------------------------------------------------------------------------------------
+AlertInfo
+| where Timestamp > ago(30d)
+| where ServiceSource has "Insider Risk"
+| join kind=leftouter (
+    AlertEvidence
+    | where Timestamp > ago(30d)
+    | where EntityType == "User"
+    | project AlertId, AccountUpn
+  ) on AlertId
+| summarize Alerts = dcount(AlertId), Titles = make_set(Title, 10), HighestSeverity = max(Severity)
+    by AccountUpn
+| order by Alerts desc
+
+
+// -------------------------------------------------------------------------------------
+// 3. Files copied to USB or other removable media (Insider Risk activity, preview table)
+//    DeviceDestinationLocationType: 3 = Removable
+// -------------------------------------------------------------------------------------
+DataSecurityEvents
+| where Timestamp > ago(30d)
+| where DeviceDestinationLocationType == 3
+| project Timestamp, AccountUpn, DeviceName, ObjectName, ObjectSize,
+          RemovableMediaManufacturer, RemovableMediaModel, RemovableMediaSerialNumber
+| order by Timestamp desc
+
+
+// -------------------------------------------------------------------------------------
+// 4. Sensitivity labels removed or changed (Insider Risk activity, preview table)
+//    Compare the label IDs against Purview > Information protection > Sensitivity labels.
+// -------------------------------------------------------------------------------------
+DataSecurityEvents
+| where Timestamp > ago(30d)
+| where isnotempty(PreviousSensitivityLabelId)
+| where SensitivityLabelId != PreviousSensitivityLabelId
+| project Timestamp, AccountUpn, ObjectName, SiteUrl, PreviousSensitivityLabelId,
+          SensitivityLabelId, Workload
+| order by Timestamp desc
+
+
+// -------------------------------------------------------------------------------------
+// 5. Leaver activity timeline - works WITHOUT Insider Risk Management
+//    Add your leavers and their last working day. Shows SharePoint and OneDrive
+//    downloads, archive files created on their devices, and email with attachments
+//    sent outside the organisation, from 30 days before their last working day.
+// -------------------------------------------------------------------------------------
+let Leavers = datatable(AccountUpn: string, LastWorkingDay: datetime) [
+    "leaver1@contoso.com", datetime(2026-11-21),
+    "leaver2@contoso.com", datetime(2026-12-05)
+];
+let LookbackDays = 30d;
+let LeaverUpns = Leavers | project AccountUpn = tolower(AccountUpn);
+let CloudDownloads = CloudAppEvents
+    | where Timestamp > ago(90d)
+    | where ActionType == "FileDownloaded"
+    | extend AccountUpn = tolower(tostring(RawEventData.UserId))
+    | where AccountUpn in (LeaverUpns)
+    | project Timestamp, AccountUpn, Activity = "Downloaded from SharePoint or OneDrive",
+              Detail = ObjectName, Application;
+let ArchivesCreated = DeviceFileEvents
+    | where Timestamp > ago(90d)
+    | where ActionType in ("FileCreated", "FileRenamed")
+    | where FileName matches regex @"(?i)\.(zip|7z|rar|tar|gz|dat)$"
+    | extend AccountUpn = tolower(InitiatingProcessAccountUpn)
+    | where AccountUpn in (LeaverUpns)
+    | project Timestamp, AccountUpn, Activity = strcat("Archive ", tolower(ActionType), " on device"),
+              Detail = strcat(DeviceName, " - ", FolderPath), Application = InitiatingProcessFileName;
+let ExternalEmail = EmailEvents
+    | where Timestamp > ago(90d)
+    | where EmailDirection == "Outbound" and AttachmentCount > 0
+    | extend AccountUpn = tolower(SenderFromAddress)
+    | where AccountUpn in (LeaverUpns)
+    | project Timestamp, AccountUpn, Activity = "Email with attachments sent outside",
+              Detail = strcat(RecipientEmailAddress, " - ", Subject), Application = "Exchange Online";
+union CloudDownloads, ArchivesCreated, ExternalEmail
+| join kind=inner (Leavers | extend AccountUpn = tolower(AccountUpn)) on AccountUpn
+| where Timestamp between ((LastWorkingDay - LookbackDays) .. (LastWorkingDay + 1d))
+| project Timestamp, AccountUpn, LastWorkingDay, Activity, Detail, Application
+| order by AccountUpn asc, Timestamp asc
+
+
+// -------------------------------------------------------------------------------------
+// 6. Leaver summary - one row per person, ranked by how much they did
+// -------------------------------------------------------------------------------------
+let Leavers = datatable(AccountUpn: string) [
+    "leaver1@contoso.com",
+    "leaver2@contoso.com"
+];
+let LeaverUpns = Leavers | project AccountUpn = tolower(AccountUpn);
+CloudAppEvents
+| where Timestamp > ago(30d)
+| where ActionType == "FileDownloaded"
+| extend AccountUpn = tolower(tostring(RawEventData.UserId))
+| where AccountUpn in (LeaverUpns)
+| summarize Downloads = count(), DistinctFiles = dcount(ObjectName),
+            FirstSeen = min(Timestamp), LastSeen = max(Timestamp) by AccountUpn
+| order by Downloads desc
+
+
+// -------------------------------------------------------------------------------------
+// 7. Find a run of Invoke-InsiderRiskSimulation.ps1 (lab only)
+//    The script names its SharePoint folder IRMSIM-<timestamp>, disguises the archive
+//    as holiday-photos-<date>.dat and puts the run ID in the email subject.
+// -------------------------------------------------------------------------------------
+let SimFiles = DeviceFileEvents
+    | where Timestamp > ago(7d)
+    | where FileName startswith "holiday-photos-" or FolderPath has "IRM-Simulation"
+    | project Timestamp, Source = "Device", Account = InitiatingProcessAccountUpn,
+              Activity = ActionType, Detail = strcat(DeviceName, " - ", FolderPath);
+let SimCloud = CloudAppEvents
+    | where Timestamp > ago(7d)
+    | where ObjectName has "IRMSIM-"
+    | project Timestamp, Source = "SharePoint", Account = tostring(RawEventData.UserId),
+              Activity = ActionType, Detail = ObjectName;
+let SimMail = EmailEvents
+    | where Timestamp > ago(7d)
+    | where Subject has "IRMSIM-"
+    | project Timestamp, Source = "Email", Account = SenderFromAddress,
+              Activity = strcat("Email ", EmailDirection), Detail = RecipientEmailAddress;
+union SimFiles, SimCloud, SimMail
+| order by Timestamp asc
